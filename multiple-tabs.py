@@ -1,62 +1,47 @@
-import webbrowser
-import time
-import pygetwindow as gw
-import pyautogui
+# music_theory.py (continued)
 
-
-def open_tabs_in_corners(url, num_tabs=4):
+def get_note_index(note_name):
     """
-    Open multiple browser tabs and arrange them in monitor corners
+    Finds the position of a note in the CHROMATIC_NOTES list, ignoring octave.
+    Example: get_note_index('C#') -> 1, get_note_index('Eb') -> 3 (But we use D#)
     """
-    # Get screen dimensions
-    screen_width, screen_height = pyautogui.size()
-    half_width = screen_width // 2
-    half_height = screen_height // 2
+    base_note = note_name[0]  # Get just the letter part (C, D, E, etc.)
+    if len(note_name) > 1 and note_name[1] == 'b':
+        # Handle flats by converting them to sharps for simplicity in our model.
+        # This is a music theory logic decision! C# and Db are enharmonic equivalents.
+        flat_to_sharp = {'Cb': 'B', 'Db': 'C#', 'Eb': 'D#', 'Fb': 'E', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#'}
+        base_note = flat_to_sharp.get(note_name[:2], base_note) # Use the first two chars if it's a flat
+    else:
+        base_note = note_name # It's a natural or sharp
 
-    # Open first tab
-    webbrowser.open_new_tab(url)
-    time.sleep(2)  # Wait for browser to open
+    try:
+        return CHROMATIC_NOTES.index(base_note)
+    except ValueError:
+        raise ValueError(f"Note '{note_name}' is not a valid note name.")
 
-    # Get browser window
-    browser_windows = gw.getWindowsWithTitle('Chrome') or gw.getWindowsWithTitle('Firefox') or gw.getWindowsWithTitle(
-        'Edge')
+def get_notes_in_scale(root_note, scale_type):
+    """
+    Generates the notes of a scale based on its formula.
+    Example: get_notes_in_scale('C', 'major') -> ['C', 'D', 'E', 'F', 'G', 'A', 'B']
+    """
+    if scale_type not in SCALE_FORMULAS:
+        raise ValueError(f"Unknown scale type: {scale_type}")
 
-    if not browser_windows:
-        print("Browser window not found")
-        return
+    root_index = get_note_index(root_note)
+    scale_intervals = SCALE_FORMULAS[scale_type]
 
-    browser = browser_windows[0]
+    current_index = root_index
+    scale_notes = [CHROMATIC_NOTES[root_index]] # Start with the root note
 
+    for interval in scale_intervals:
+        current_index = (current_index + interval) % len(CHROMATIC_NOTES)
+        scale_notes.append(CHROMATIC_NOTES[current_index])
 
-    # Arrange first window in top-left
-    browser.resizeTo(half_width, half_height)
-    browser.moveTo(0, 0)
+    return scale_notes
 
-    # Open additional tabs and arrange them
-    for i in range(1, num_tabs):
-        # Open new tab (Ctrl+T)
-        browser.activate()
-        pyautogui.hotkey('ctrl', 't')
-        time.sleep(1)
-
-        # Navigate to URL (Ctrl+L, then type URL, then Enter)
-        pyautogui.hotkey('ctrl', 'l')
-        time.sleep(0.5)
-        pyautogui.write(url)
-        pyautogui.press('enter')
-        time.sleep(2)
-
-        # Arrange window based on corner
-        if i == 1:  # Top-right
-            browser.moveTo(half_width, 0)
-        elif i == 2:  # Bottom-left
-            browser.moveTo(0, half_height)
-        elif i == 3:  # Bottom-right
-            browser.moveTo(half_width, half_height)
-
-
+# Let's test our function immediately!
 if __name__ == "__main__":
-    url = input("Enter URL to open: ") or "https://www.google.com"
-    num_tabs = int(input("Number of tabs (1-4): ") or "4")
-
-    open_tabs_in_corners(url, min(max(num_tabs, 1), 4))
+    # Quick test to see if our logic works
+    print("C Major Scale:", get_notes_in_scale('C', 'major'))
+    print("A Minor Pentatonic Scale:", get_notes_in_scale('A', 'minor_pentatonic'))
+    print("Gb Major Scale:", get_notes_in_scale('Gb', 'major')) # Should handle flats
